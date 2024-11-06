@@ -41,6 +41,8 @@ class Venue(db.Model):
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
 
+    def __repr__(self) -> str:
+       return f'<Venue {self.id} {self.city} {self.name}>'
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
 class Artist(db.Model):
@@ -89,27 +91,54 @@ def index():
 def venues():
   # TODO: replace with real venues data.
   #       num_upcoming_shows should be aggregated based on number of upcoming shows per venue.
-  data=[{
-    "city": "San Francisco",
-    "state": "CA",
-    "venues": [{
-      "id": 1,
-      "name": "The Musical Hop",
-      "num_upcoming_shows": 0,
-    }, {
-      "id": 3,
-      "name": "Park Square Live Music & Coffee",
-      "num_upcoming_shows": 1,
-    }]
-  }, {
-    "city": "New York",
-    "state": "NY",
-    "venues": [{
-      "id": 2,
-      "name": "The Dueling Pianos Bar",
-      "num_upcoming_shows": 0,
-    }]
-  }]
+  VenueValues = Venue.query.all()
+  dataValues=[]
+  VenueList = []
+  counter = 0
+  for x in VenueValues:
+    for y in VenueValues:
+      if x.city == y.city and x.state == y.state:
+        VenuesDict = {
+            "id":y.id,
+            "name":y.name,
+            "num_upcoming_shows": counter
+          }
+        counter = counter + 1
+        VenueList.append(VenuesDict)
+        if counter >1:
+          VenueValues.remove(y)
+    StateDict = {
+      "city":x.city,
+      "state":x.state,
+      "venues":VenueList
+      }
+    dataValues.append(StateDict)
+    counter = 0
+    VenueList=[]
+  
+  data = dataValues
+  
+  # data=[{
+  #   "city": "San Francisco",
+  #   "state": "CA",
+  #   "venues": [{
+  #     "id": 1,
+  #     "name": "The Musical Hop",
+  #     "num_upcoming_shows": 0,
+  #   }, {
+  #     "id": 3,
+  #     "name": "Park Square Live Music & Coffee",
+  #     "num_upcoming_shows": 1,
+  #   }]
+  # }, {
+  #   "city": "New York",
+  #   "state": "NY",
+  #   "venues": [{
+  #     "id": 2,
+  #     "name": "The Dueling Pianos Bar",
+  #     "num_upcoming_shows": 0,
+  #   }]
+  # }]
   return render_template('pages/venues.html', areas=data);
 
 @app.route('/venues/search', methods=['POST'])
