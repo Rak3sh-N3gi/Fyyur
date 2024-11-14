@@ -3,6 +3,7 @@
 #----------------------------------------------------------------------------#
 
 import json
+import sys
 import dateutil.parser
 import babel
 from flask import Flask, render_template, request, Response, flash, redirect, url_for
@@ -40,6 +41,10 @@ class Venue(db.Model):
     phone = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
+    genres = db.Column(db.ARRAY(db.String(120)))
+    website_link = db.Column(db.String(120))
+    seeking_talent = db.Column(db.Boolean)
+    seeking_description = db.Column(db.String(120))
 
     def __repr__(self) -> str:
        return f'<Venue {self.id} {self.city} {self.name}>'
@@ -146,13 +151,18 @@ def search_venues():
   # TODO: implement search on venues with partial string search. Ensure it is case-insensitive.
   # seach for Hop should return "The Musical Hop".
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
+  queryInput = request.form.get('search_term', '')
+  queryOutput = Venue.query.filter(Venue.name.ilike('%{}%'.format(queryInput))).all()
+  data = queryOutput
+  print
   response={
-    "count": 1,
-    "data": [{
-      "id": 2,
-      "name": "The Dueling Pianos Bar",
-      "num_upcoming_shows": 0,
-    }]
+    "count": len(queryOutput),
+    "data":data
+    # "data": [{
+    #   "id": 2,
+    #   "name": "The Dueling Pianos Bar",
+    #   "num_upcoming_shows": 0,
+    # }]
   }
   return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
 
@@ -250,11 +260,38 @@ def create_venue_form():
 
 @app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
+
   # TODO: insert form data as a new Venue record in the db, instead
   # TODO: modify data to be the data object returned from db insertion
-
+  print(request.form.getlist('genres'))
   # on successful db insert, flash success
-  flash('Venue ' + request.form['name'] + ' was successfully listed!')
+  try:
+    seekTalent = Venue(seeking_talent = request.form['seeking_talent'])
+    if request.form['seeking_talent'] == ('y' or 'Y'):
+        seekTalent = True
+    else:
+       seekTalent = False
+    venue = Venue(name = request.form['name'],
+                  city = request.form['city'],
+                  state = request.form['state'],
+                  address = request.form['address'],
+                  phone = request.form['phone'],
+                  facebook_link = request.form['facebook_link'],
+                  genres = request.form.getlist('genres'),
+                  image_link = request.form['image_link'],
+                  website_link = request.form['website_link'],
+                  seeking_talent = seekTalent,
+                  seeking_description = request.form['seeking_description']
+                  )
+    db.session.add(venue)
+    db.session.commit()
+    flash('Venue ' + request.form['name'] + ' was successfully listed!')
+  except:
+     db.session.rollback()
+     print(sys.exc_info())
+     flash('An error occurred. Venue ' + request.form['name'] + ' could not be listed.')
+  finally:
+     db.session.close()
   # TODO: on unsuccessful db insert, flash an error instead.
   # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
   # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
