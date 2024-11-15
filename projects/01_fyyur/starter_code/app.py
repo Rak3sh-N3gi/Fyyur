@@ -373,16 +373,23 @@ def delete_venue(venue_id):
 @app.route('/artists')
 def artists():
   # TODO: replace with real data returned from querying the database
-  data=[{
-    "id": 4,
-    "name": "Guns N Petals",
-  }, {
-    "id": 5,
-    "name": "Matt Quevedo",
-  }, {
-    "id": 6,
-    "name": "The Wild Sax Band",
-  }]
+  data = []
+  dataDict = {}
+  allArtist = Artist.query.all()
+  for x in allArtist:
+    dataDict["id"]=x.id
+    dataDict["name"]=x.name
+    data.append(dataDict)
+  # data=[{
+  #   "id": 4,
+  #   "name": "Guns N Petals",
+  # }, {
+  #   "id": 5,
+  #   "name": "Matt Quevedo",
+  # }, {
+  #   "id": 6,
+  #   "name": "The Wild Sax Band",
+  # }]
   return render_template('pages/artists.html', artists=data)
 
 @app.route('/artists/search', methods=['POST'])
@@ -390,13 +397,16 @@ def search_artists():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
   # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
   # search for "band" should return "The Wild Sax Band".
+  queryInput = request.form.get('search_term', '')
+  queryOutput = Artist.query.filter(Artist.name.ilike('%{}%'.format(queryInput))).all()
+  data = queryOutput
   response={
-    "count": 1,
-    "data": [{
-      "id": 4,
-      "name": "Guns N Petals",
-      "num_upcoming_shows": 0,
-    }]
+    "count": len(queryOutput),
+    "data": data
+    #   "id": 4,
+    #   "name": "Guns N Petals",
+    #   "num_upcoming_shows": 0,
+    # }]
   }
   return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
 
@@ -404,6 +414,52 @@ def search_artists():
 def show_artist(artist_id):
   # shows the artist page with the given artist_id
   # TODO: replace with real artist data from the artist table, using artist_id
+  queryOutput1 = Artist.query.get(artist_id)
+  past_shows = Show.query.filter(Show.artist_id==artist_id, Show.start_time < datetime.now()).all()
+  print(past_shows)
+  pastShowDict = {}
+  pastShowList =[]
+  for x in past_shows:
+    pastShowQuery = Venue.query.get(x.artist_id)
+    print(pastShowQuery)
+    pastShowDict["venue_id"] = x.artist_id
+    pastShowDict["venue_name"] = pastShowQuery.name
+    pastShowDict["venue_image_link"] = pastShowQuery.image_link
+    pastShowDict["start_time"] = str(x.start_time)
+    pastShowList.append(pastShowDict)
+  print(pastShowList)
+
+  up_shows = Show.query.filter(Show.artist_id==artist_id, Show.start_time > datetime.now()).all()
+  print(up_shows)
+  upShowDict = {}
+  upShowList =[]
+  for x in up_shows:
+    upShowQuery = Artist.query.get(x.artist_id)
+    print(upShowQuery)
+    upShowDict["venue_id"] = x.artist_id
+    upShowDict["venue_name"] = upShowQuery.name
+    upShowDict["venue_image_link"] = upShowQuery.image_link
+    upShowDict["start_time"] = str(x.start_time)
+    upShowList.append(upShowDict)
+  print(upShowList)
+
+  data={
+    "id": queryOutput1.id,
+    "name": queryOutput1.name,
+    "genres": queryOutput1.genres,
+    "city": queryOutput1.city,
+    "state": queryOutput1.state,
+    "phone": queryOutput1.phone,
+    "website": queryOutput1.website_link,
+    "facebook_link": queryOutput1.facebook_link,
+    "seeking_venue": queryOutput1.seeking_venue,
+    "seeking_description": queryOutput1.seeking_description,
+    "image_link": queryOutput1.image_link,
+    "past_shows": pastShowList,
+    "upcoming_shows": upShowList,
+    "past_shows_count": len(pastShowList),
+    "upcoming_shows_count": len(upShowList),
+  }
   data1={
     "id": 4,
     "name": "Guns N Petals",
@@ -475,7 +531,7 @@ def show_artist(artist_id):
     "past_shows_count": 0,
     "upcoming_shows_count": 3,
   }
-  data = list(filter(lambda d: d['id'] == artist_id, [data1, data2, data3]))[0]
+  # data = list(filter(lambda d: d['id'] == artist_id, [data1, data2, data3]))[0]
   return render_template('pages/show_artist.html', artist=data)
 
 #  Update
