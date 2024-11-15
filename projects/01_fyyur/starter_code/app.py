@@ -179,6 +179,54 @@ def search_venues():
 def show_venue(venue_id):
   # shows the venue page with the given venue_id
   # TODO: replace with real venue data from the venues table, using venue_id
+  queryOutput1 = Venue.query.get(venue_id)
+  past_shows = Show.query.filter(Show.venue_id==venue_id, Show.start_time < datetime.now()).all()
+  print(past_shows)
+  pastShowDict = {}
+  pastShowList =[]
+  for x in past_shows:
+    pastShowQuery = Artist.query.get(x.artist_id)
+    print(pastShowQuery)
+    pastShowDict["artist_id"] = x.artist_id
+    pastShowDict["artist_name"] = pastShowQuery.name
+    pastShowDict["artist_image_link"] = pastShowQuery.image_link
+    pastShowDict["start_time"] = str(x.start_time)
+    pastShowList.append(pastShowDict)
+  print(pastShowList)
+
+  up_shows = Show.query.filter(Show.venue_id==venue_id, Show.start_time > datetime.now()).all()
+  print(up_shows)
+  upShowDict = {}
+  upShowList =[]
+  for x in up_shows:
+    upShowQuery = Artist.query.get(x.artist_id)
+    print(upShowQuery)
+    upShowDict["artist_id"] = x.artist_id
+    upShowDict["artist_name"] = upShowQuery.name
+    upShowDict["artist_image_link"] = upShowQuery.image_link
+    upShowDict["start_time"] = str(x.start_time)
+    upShowList.append(upShowDict)
+  print(upShowList)
+
+  data={
+    "id": queryOutput1.id,
+    "name": queryOutput1.name,
+    "genres": queryOutput1.genres,
+    "address": queryOutput1.address,
+    "city": queryOutput1.city,
+    "state": queryOutput1.state,
+    "phone": queryOutput1.phone,
+    "website": queryOutput1.website_link,
+    "facebook_link": queryOutput1.facebook_link,
+    "seeking_talent": queryOutput1.seeking_talent,
+    "seeking_description": queryOutput1.seeking_description,
+    "image_link": queryOutput1.image_link,
+    "past_shows": pastShowList,
+    "upcoming_shows": upShowList,
+    "past_shows_count": len(pastShowList),
+    "upcoming_shows_count": len(upShowList),
+  }
+
   data1={
     "id": 1,
     "name": "The Musical Hop",
@@ -256,7 +304,7 @@ def show_venue(venue_id):
     "past_shows_count": 1,
     "upcoming_shows_count": 1,
   }
-  data = list(filter(lambda d: d['id'] == venue_id, [data1, data2, data3]))[0]
+  # data = list(filter(lambda d: d['id'] == venue_id, [data1, data2, data3]))[0]
   return render_template('pages/show_venue.html', venue=data)
 
 #  Create Venue
@@ -309,7 +357,13 @@ def create_venue_submission():
 def delete_venue(venue_id):
   # TODO: Complete this endpoint for taking a venue_id, and using
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
-
+  try:
+     Venue.query.filter_by(id=venue_id).delete()
+     db.session.commit()
+  except:
+     db.session.rollback()
+  finally:
+     db.session.close()
   # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
   # clicking that button delete it from the db then redirect the user to the homepage
   return None
