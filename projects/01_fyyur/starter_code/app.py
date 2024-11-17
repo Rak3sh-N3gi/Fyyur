@@ -105,30 +105,31 @@ def index():
 def venues():
   # TODO: replace with real venues data.
   #       num_upcoming_shows should be aggregated based on number of upcoming shows per venue.
-  VenueValues = Venue.query.all()
-  data=[]
-  VenueList = []
-  counter = 0
-  for x in VenueValues:
-    for y in VenueValues:
-      if x.city == y.city and x.state == y.state:
-        VenuesDict = {
-            "id":y.id,
-            "name":y.name,
-            "num_upcoming_shows": counter
-          }
-        counter = counter + 1
-        VenueList.append(VenuesDict)
-        if counter >1:
-          VenueValues.remove(y)
-    StateDict = {
+  
+  venueList = []
+  venueDict = {}
+  stateDict = {}
+  data = []
+  distictVenues = Venue.query.distinct(Venue.state,Venue.city).all()
+  for x in distictVenues:
+    allVenues = Venue.query.filter(Venue.state == x.state, Venue.city == x.city).all()
+    print(allVenues)
+    for y in allVenues:
+        up_shows = Show.query.filter(Show.venue_id==y.id, Show.start_time > datetime.now()).all()
+        venueDict = {
+          "id":y.id,
+          "name":y.name,
+          "num_upcoming_shows": up_shows
+        }
+        venueList.append(venueDict)
+        venueDict = {}
+    stateDict = {
       "city":x.city,
       "state":x.state,
-      "venues":VenueList
-      }
-    data.append(StateDict)
-    counter = 0
-    VenueList=[]
+      "venues":venueList
+    }
+    data.append(stateDict)
+    venueList = []
   
   # data=[{
   #   "city": "San Francisco",
@@ -342,20 +343,22 @@ def create_venue_submission():
   # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
   return render_template('pages/home.html')
 
-@app.route('/venues/<venue_id>', methods=['DELETE'])
+@app.route('/venues/<venue_id>/delete', methods=['GET','POST'])
 def delete_venue(venue_id):
   # TODO: Complete this endpoint for taking a venue_id, and using
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
+  print('Delete Method Called')
   try:
      Venue.query.filter_by(id=venue_id).delete()
      db.session.commit()
   except:
+     print(sys.exc_info())
      db.session.rollback()
   finally:
      db.session.close()
   # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
   # clicking that button delete it from the db then redirect the user to the homepage
-  return None
+  return redirect(url_for('venues'))
 
 #  Artists
 #  ----------------------------------------------------------------
@@ -685,6 +688,7 @@ def shows():
     allShowsDict['artist_image_link'] = artist.image_link
     allShowsDict['start_time'] = str(x.start_time)
     data.append(allShowsDict)
+    allShowsDict = {}
 
   # data=[{
   #   "venue_id": 1,
