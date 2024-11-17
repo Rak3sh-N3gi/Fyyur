@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from flask_wtf import Form
 from wtforms import StringField, SelectField, SelectMultipleField, DateTimeField, BooleanField
-from wtforms.validators import DataRequired, AnyOf, URL
+from wtforms.validators import DataRequired, AnyOf, URL, Length
 
 class ShowForm(Form):
     artist_id = StringField(
@@ -112,7 +112,7 @@ class VenueForm(Form):
             ('Rock n Roll', 'Rock n Roll'),
             ('Soul', 'Soul'),
             ('Other', 'Other'),
-        ],
+        ]
     )
     facebook_link = StringField(
         'facebook_link', validators=[URL()]
@@ -192,10 +192,12 @@ class ArtistForm(Form):
             ('WY', 'WY'),
         ]
     )
+
     phone = StringField(
         # TODO implement validation logic for phone 
-        'phone'
+        'phone',[DataRequired(),Length(10,10)]
     )
+
     image_link = StringField(
         'image_link'
     )
