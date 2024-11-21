@@ -1,7 +1,6 @@
 #----------------------------------------------------------------------------#
 # Imports
 #----------------------------------------------------------------------------#
-
 import json
 import sys
 import dateutil.parser
@@ -14,70 +13,24 @@ import logging
 from logging import Formatter, FileHandler
 from flask_wtf import Form
 from forms import *
+from models import *
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
+# app = Flask(__name__)
+# moment = Moment(app)
+# app.config.from_object('config')
 
-app = Flask(__name__)
-moment = Moment(app)
-app.config.from_object('config')
-db = SQLAlchemy(app)
-
-migrate = Migrate(app, db)
 # TODO: connect to a local postgresql database
 
 #----------------------------------------------------------------------------#
-# Models.
+# Controllers.
 #----------------------------------------------------------------------------#
-
-class Venue(db.Model):
-    __tablename__ = 'Venue'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    address = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    genres = db.Column(db.ARRAY(db.String(120)))
-    website_link = db.Column(db.String(120))
-    seeking_talent = db.Column(db.Boolean)
-    seeking_description = db.Column(db.String(120))
-
-    def __repr__(self) -> str:
-       return f'<Venue {self.id} {self.city} {self.name}>'
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
-
-class Artist(db.Model):
-    __tablename__ = 'Artist'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    genres = db.Column(db.ARRAY(db.String(120)))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    website_link = db.Column(db.String(120))
-    seeking_venue = db.Column(db.Boolean)
-    seeking_description = db.Column(db.String(120))
-
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
-
-# TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
-class Show(db.Model):
-   __tablename__ = 'Show'
-
-   id = db.Column(db.Integer, primary_key=True)
-   artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id'), nullable=False)
-   venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'), nullable=False)
-   start_time = db.Column(db.DateTime)
-#----------------------------------------------------------------------------#
-# Filters.
-#----------------------------------------------------------------------------#
+app = Flask(__name__)
+moment = Moment(app)
+app.config.from_object('config')
+db.init_app(app)
+migrate = Migrate(app, db)
 
 def format_datetime(value, format='medium'):
   date = dateutil.parser.parse(value)
@@ -88,11 +41,6 @@ def format_datetime(value, format='medium'):
   return babel.dates.format_datetime(date, format, locale='en')
 
 app.jinja_env.filters['datetime'] = format_datetime
-
-#----------------------------------------------------------------------------#
-# Controllers.
-#----------------------------------------------------------------------------#
-
 @app.route('/')
 def index():
   return render_template('pages/home.html')
@@ -110,12 +58,16 @@ def venues():
   venueDict = {}
   stateDict = {}
   data = []
-  distictVenues = Venue.query.distinct(Venue.state,Venue.city).all()
+  # distictVenues = Venue.query.distinct(Venue.state,Venue.city).all()
+  distictVenues = Venue.distictVenue(Venue)
+  # print(distictVenues)
   for x in distictVenues:
     allVenues = Venue.query.filter(Venue.state == x.state, Venue.city == x.city).all()
-    print(allVenues)
+    # print(allVenues)
     for y in allVenues:
-        up_shows = Show.query.filter(Show.venue_id==y.id, Show.start_time > datetime.now()).all()
+        # up_shows = Show.query.filter(Show.venue_id==y.id, Show.start_time > datetime.now()).all()
+        up_shows = Artist.num_upcoming_shows(y)
+        # print(up_shows)
         venueDict = {
           "id":y.id,
           "name":y.name,
@@ -160,7 +112,8 @@ def search_venues():
   # seach for Hop should return "The Musical Hop".
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
   queryInput = request.form.get('search_term', '')
-  data = Venue.query.filter(Venue.name.ilike('%{}%'.format(queryInput))).all()
+  # data = Venue.query.filter(Venue.name.ilike('%{}%'.format(queryInput))).all()
+  data = valueSearch(Venue,queryInput)
   response={
     "count": len(data),
     "data":data
@@ -176,29 +129,9 @@ def search_venues():
 def show_venue(venue_id):
   # shows the venue page with the given venue_id
   # TODO: replace with real venue data from the venues table, using venue_id
-  queryOutput1 = Venue.query.get(venue_id)
-  past_shows = Show.query.filter(Show.venue_id==venue_id, Show.start_time < datetime.now()).all()
-  pastShowDict = {}
-  pastShowList =[]
-  for x in past_shows:
-    pastShowQuery = Artist.query.get(x.artist_id)
-    pastShowDict["artist_id"] = x.artist_id
-    pastShowDict["artist_name"] = pastShowQuery.name
-    pastShowDict["artist_image_link"] = pastShowQuery.image_link
-    pastShowDict["start_time"] = str(x.start_time)
-    pastShowList.append(pastShowDict)
-
-  up_shows = Show.query.filter(Show.venue_id==venue_id, Show.start_time > datetime.now()).all()
-  upShowDict = {}
-  upShowList =[]
-  for x in up_shows:
-    upShowQuery = Artist.query.get(x.artist_id)
-    upShowDict["artist_id"] = x.artist_id
-    upShowDict["artist_name"] = upShowQuery.name
-    upShowDict["artist_image_link"] = upShowQuery.image_link
-    upShowDict["start_time"] = str(x.start_time)
-    upShowList.append(upShowDict)
-
+  past_shows = Show.get_past_by_venue(Show,venue_id)
+  up_shows = Show.get_up_by_venue(Show,venue_id)
+  queryOutput1 = getValue(Venue,venue_id)
   data={
     "id": queryOutput1.id,
     "name": queryOutput1.name,
@@ -212,13 +145,13 @@ def show_venue(venue_id):
     "seeking_talent": queryOutput1.seeking_talent,
     "seeking_description": queryOutput1.seeking_description,
     "image_link": queryOutput1.image_link,
-    "past_shows": pastShowList,
-    "upcoming_shows": upShowList,
-    "past_shows_count": len(pastShowList),
-    "upcoming_shows_count": len(upShowList),
+    "past_shows": past_shows,
+    "upcoming_shows": up_shows,
+    "past_shows_count": len(past_shows),
+    "upcoming_shows_count": len(up_shows),
   }
 
-  # data1={
+  # data={
   #   "id": 1,
   #   "name": "The Musical Hop",
   #   "genres": ["Jazz", "Reggae", "Swing", "Classical", "Folk"],
@@ -349,7 +282,8 @@ def delete_venue(venue_id):
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
   print('Delete Method Called')
   try:
-     Venue.query.filter_by(id=venue_id).delete()
+    #  Venue.query.filter_by(id=venue_id).delete()
+     delValue(Venue,venue_id)
      db.session.commit()
   except:
      print(sys.exc_info())
@@ -366,14 +300,13 @@ def delete_venue(venue_id):
 def artists():
   # TODO: replace with real data returned from querying the database
   data = []
-  dataDict = {}
   allArtist = Artist.query.all()
-  print(allArtist)
   for x in allArtist:
-    dataDict["id"]=x.id
-    dataDict["name"]=x.name
+    dataDict={
+      "id":x.id,
+      "name":x.name
+      }
     data.append(dataDict)
-    dataDict={}
   # data=[{
   #   "id": 4,
   #   "name": "Guns N Petals",
@@ -392,7 +325,7 @@ def search_artists():
   # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
   # search for "band" should return "The Wild Sax Band".
   queryInput = request.form.get('search_term', '')
-  data = Artist.query.filter(Artist.name.ilike('%{}%'.format(queryInput))).all()
+  data = valueSearch(Artist,queryInput)
   response={
     "count": len(data),
     "data": data
@@ -407,28 +340,9 @@ def search_artists():
 def show_artist(artist_id):
   # shows the artist page with the given artist_id
   # TODO: replace with real artist data from the artist table, using artist_id
-  queryOutput1 = Artist.query.get(artist_id)
-  past_shows = Show.query.filter(Show.artist_id==artist_id, Show.start_time < datetime.now()).all()
-  pastShowDict = {}
-  pastShowList =[]
-  for x in past_shows:
-    pastShowQuery = Venue.query.get(x.artist_id)
-    pastShowDict["venue_id"] = x.artist_id
-    pastShowDict["venue_name"] = pastShowQuery.name
-    pastShowDict["venue_image_link"] = pastShowQuery.image_link
-    pastShowDict["start_time"] = str(x.start_time)
-    pastShowList.append(pastShowDict)
-
-  up_shows = Show.query.filter(Show.artist_id==artist_id, Show.start_time > datetime.now()).all()
-  upShowDict = {}
-  upShowList =[]
-  for x in up_shows:
-    upShowQuery = Artist.query.get(x.artist_id)
-    upShowDict["venue_id"] = x.artist_id
-    upShowDict["venue_name"] = upShowQuery.name
-    upShowDict["venue_image_link"] = upShowQuery.image_link
-    upShowDict["start_time"] = str(x.start_time)
-    upShowList.append(upShowDict)
+  queryOutput1 = getValue(Artist,artist_id)
+  past_shows = Show.get_past_by_artist(artist_id)
+  up_shows = Show.get_up_by_artist(artist_id)
 
   data={
     "id": queryOutput1.id,
@@ -442,10 +356,10 @@ def show_artist(artist_id):
     "seeking_venue": queryOutput1.seeking_venue,
     "seeking_description": queryOutput1.seeking_description,
     "image_link": queryOutput1.image_link,
-    "past_shows": pastShowList,
-    "upcoming_shows": upShowList,
-    "past_shows_count": len(pastShowList),
-    "upcoming_shows_count": len(upShowList),
+    "past_shows": past_shows,
+    "upcoming_shows": up_shows,
+    "past_shows_count": len(past_shows),
+    "upcoming_shows_count": len(up_shows),
   }
   # data1={
   #   "id": 4,
@@ -548,7 +462,7 @@ def edit_artist_submission(artist_id):
   # TODO: take values from the form submitted, and update existing
   # artist record with ID <artist_id> using the new attributes
   try:
-    artist = Artist.query.get(artist_id)
+    artist = getValue(Artist,artist_id)
     if 'seeking_venue' in request.form:
       artist.seeking_venue = True
     else:
@@ -599,7 +513,7 @@ def edit_venue_submission(venue_id):
   # TODO: take values from the form submitted, and update existing
   # venue record with ID <venue_id> using the new attributes
   try:
-    venue = Venue.query.get(venue_id)
+    venue = getValue(Venue,venue_id)
     if 'seeking_talent' in request.form:
       venue.seeking_talent = True
     else:
@@ -680,10 +594,10 @@ def shows():
   allShowsDict = {}
   for x in allShows:
     allShowsDict['venue_id'] = x.venue_id
-    venue = Venue.query.get(x.venue_id)
+    venue = getValue(Venue,x.venue_id)
     allShowsDict['venue_name'] = venue.name
     allShowsDict['artist_id'] = x.artist_id
-    artist = Artist.query.get(x.artist_id)
+    artist = getValue(Artist,x.artist_id)
     allShowsDict['artist_name'] = artist.name
     allShowsDict['artist_image_link'] = artist.image_link
     allShowsDict['start_time'] = str(x.start_time)
